@@ -1,15 +1,17 @@
 import { Mastra } from "@mastra/core";
+import { codeHelperAgent } from "../agents/codeHelper.js";
 
 // Disable telemetry warnings
 globalThis.___MASTRA_TELEMETRY___ = true;
 
-// Create Mastra instance with proper configuration
+// Create Mastra instance with proper agent registration
 export const mastra = new Mastra({
-  // Add any agents or workflows here
-  workflows: {
-    // You can define workflows here if needed
-  }
+  agents: {
+    codeHelper: codeHelperAgent,
+  },
 });
+
+console.log("✅ Mastra instance created with Code Helper Agent");
 
 // Export for Mastra Cloud
 export default mastra;

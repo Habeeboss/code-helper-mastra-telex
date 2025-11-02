@@ -1,17 +1,11 @@
-import { Agent } from "@mastra/core";
+import { Agent } from "@mastra/core/agent";
+import { z } from "zod";
 import { getGeminiModel } from "../config/gemini.js";
 
-// Create Mastra agent using the proper Agent class
-let codeHelperAgent;
-let mastraAvailable = false;
-
-try {
-  console.log("🔄 Creating Mastra Agent with Agent class...");
-  
-  // Create agent using Mastra's Agent class
-  codeHelperAgent = new Agent({
-    name: "code_helper_telex",
-    instructions: `
+// Create proper Mastra Agent with the correct structure
+export const codeHelperAgent = new Agent({
+  name: "code_helper_telex",
+  instructions: `
 You are an expert code assistant that helps developers with code analysis, debugging, and optimization.
 
 CORE FUNCTIONALITY:
@@ -22,11 +16,11 @@ CORE FUNCTIONALITY:
 - Help with debugging and optimization
 
 RESPONSE FORMAT:
-- Use clean markdown without backslash escapes
+- Use clean markdown formatting
 - Use **bold** for section headers
 - Use bullet points • for lists
-- Use code blocks with triple backticks and language specification
-- Use regular newlines, not \\\\n escapes
+- Use code blocks with triple backticks
+- Use regular newlines for readability
 
 ANALYSIS STRUCTURE:
 **Code Explanation**
@@ -47,189 +41,217 @@ ANALYSIS STRUCTURE:
 LANGUAGES SUPPORTED:
 JavaScript, Python, Java, TypeScript, HTML, CSS, Go, Rust, PHP, and more.
 `,
-    model: "gemini-2.0-flash-exp"
-  });
-
-  // Override the generate method to use Gemini directly
-  const originalGenerate = codeHelperAgent.generate;
-  codeHelperAgent.generate = async (prompt) => {
-    try {
-      console.log("🔄 Mastra agent processing with Gemini...");
-      const gemini = getGeminiModel("gemini-2.5-flash");
-      const result = await gemini.generateContent(prompt);
-      return result.response.text();
-    } catch (error) {
-      console.error("❌ Mastra Gemini processing failed:", error.message);
-      // Fallback to original generate if available
-      if (originalGenerate) {
-        return originalGenerate.call(codeHelperAgent, prompt);
-      }
-      throw error;
-    }
-  };
-
-  mastraAvailable = true;
-  console.log("✅ Mastra Agent created successfully");
-
-} catch (error) {
-  console.error("❌ Mastra Agent creation failed:", error.message);
-  
-  // Fallback to custom agent structure
-  console.log("📝 Using custom agent as fallback");
-  codeHelperAgent = {
-    name: "code_helper_telex",
-    model: "gemini-2.5-flash",
-    instructions: "You are a helpful code assistant...",
-    __registerMastra: function(mastraInstance) {
-      console.log("🔧 Mastra agent registered");
-      this.mastra = mastraInstance;
-      return this;
-    },
-    __registerPrimitives: function(primitives) {
-      console.log("🔧 Mastra primitives registered");
-      this.primitives = primitives;
-      return this;
-    },
-    start: async function() {
-      console.log("🚀 Mastra agent started");
-      return this;
-    },
-    stop: async function() {
-      console.log("🛑 Mastra agent stopped");
-      return this;
-    },
-    generate: async (prompt) => {
-      try {
-        console.log("🔄 Custom agent processing with Gemini...");
-        const gemini = getGeminiModel("gemini-2.5-flash");
-        const result = await gemini.generateContent(prompt);
-        return result.response.text();
-      } catch (error) {
-        console.error("❌ Gemini processing failed:", error.message);
-        throw error;
-      }
-    },
-    toJSON: function() {
-      return {
-        name: this.name,
-        model: this.model,
-        instructions: this.instructions
-      };
-    },
-    tools: [],
-    workflows: [],
-    state: "idle"
-  };
-  mastraAvailable = true;
-}
-
-// CodeHelperService class
-class CodeHelperService {
-  constructor() {
-    this.mastraAvailable = mastraAvailable;
-    this.codeHelperAgent = codeHelperAgent;
-  }
-
-  async processWithMastra(messageText) {
-    try {
-      if (!this.mastraAvailable) {
-        throw new Error("Mastra agent not available");
-      }
-      
-      console.log("🔄 Processing with Mastra agent...");
-      
-      const response = await this.codeHelperAgent.generate(messageText);
-      
-      return {
-        text: this.cleanResponse(response),
-        metadata: {
-          agent: "code_helper_telex",
-          provider: "mastra-gemini",
-          timestamp: new Date().toISOString(),
-          mastra_used: true,
-          processing_engine: "mastra"
+  model: "gemini-2.0-flash-exp",
+  // Define tools directly in the agent configuration
+  tools: {
+    analyzeCode: {
+      description: "Analyze code for issues, improvements, and security considerations",
+      parameters: z.object({
+        code: z.string().describe("The code to analyze"),
+        language: z.string().optional().describe("Programming language of the code"),
+      }),
+      execute: async ({ context }) => {
+        try {
+          const { code, language } = context.parameters;
+          const detectedLanguage = language || detectLanguage(code);
+          
+          console.log(`🔍 Analyzing ${detectedLanguage} code (${code.length} chars)`);
+          
+          // Use Gemini for AI-powered analysis
+          const geminiModel = getGeminiModel("gemini-2.0-flash-exp");
+          const prompt = createAnalysisPrompt(code, detectedLanguage);
+          
+          const result = await geminiModel.generateContent(prompt);
+          const analysis = await result.response.text();
+          
+          // Parse the AI response into structured data
+          const structuredAnalysis = parseAnalysisResponse(analysis, code, detectedLanguage);
+          
+          return {
+            analysis: structuredAnalysis.formattedResponse,
+            language: detectedLanguage,
+            issues: structuredAnalysis.issues,
+            suggestions: structuredAnalysis.suggestions,
+            security: structuredAnalysis.security,
+          };
+          
+        } catch (error) {
+          console.error("❌ AI analysis failed:", error.message);
+          // Fallback to basic analysis
+          return await basicCodeAnalysis(context.parameters.code);
         }
-      };
-    } catch (error) {
-      console.error("❌ Mastra processing failed:", error.message);
-      throw error;
+      }
     }
   }
+});
 
-  cleanResponse(text) {
-    if (!text || typeof text !== 'string') return text;
-    
-    return text
-      .replace(/\\n/g, '\n')
-      .replace(/\\`/g, '`')
-      .replace(/\\\*/g, '*')
-      .replace(/\\#/g, '#')
-      .replace(/\\_/g, '_')
-      .replace(/\n\s*\n\s*\n/g, '\n\n')
-      .trim();
-  }
+// Helper function to create analysis prompt
+function createAnalysisPrompt(code, language) {
+  return `
+As an expert code analyst, please provide a comprehensive review of the following ${language} code:
 
-  async processMessage(messageText) {
-    try {
-      console.log("🚀 Starting code analysis with Mastra...");
-      
-      if (!messageText || typeof messageText !== 'string') {
-        return this.getWelcomeMessage();
-      }
+\`\`\`${language.toLowerCase()}
+${code}
+\`\`\`
 
-      if (!this.mastraAvailable) {
-        throw new Error("Mastra framework is not available");
-      }
+Please structure your analysis with these sections:
 
-      const mastraResult = await this.processWithMastra(messageText);
-      console.log("✅ Mastra processing successful");
-      return mastraResult;
+**🔍 Code Explanation**
+- Explain what the code does in simple terms
+- Describe how it works and its main components
+- Identify the programming paradigm and key functions
 
-    } catch (error) {
-      console.error("❌ Mastra processing failed:", error.message);
-      return this.getErrorMessage("Mastra service is currently unavailable.");
-    }
-  }
+**⚠️ Potential Issues**
+- List any bugs, errors, or logical problems
+- Identify edge cases that aren't handled
+- Point out performance bottlenecks or inefficiencies
+- Note any compatibility or dependency issues
 
-  getWelcomeMessage() {
-    return {
-      text: `👋 **Hello! I'm Code Helper Telex** (Powered by Mastra)
+**💡 Improvement Suggestions**
+- Suggest better coding practices
+- Recommend optimizations for performance
+- Propose better architecture or patterns
+- Suggest ways to improve readability and maintainability
 
-I'm your AI-powered code assistant built with Mastra framework.
+**🛡️ Security Considerations**
+- Identify potential security vulnerabilities
+- Suggest input validation and sanitization
+- Recommend security best practices
+- Point out any data protection concerns
 
-**What I can do:**
-• **Code Analysis** - Understand and explain your code
-• **Debugging Help** - Find issues and edge cases  
-• **Optimization Tips** - Suggest improvements and best practices
-• **Multi-Language Support** - JavaScript, Python, Java, HTML, CSS, and more!
+**📝 Examples** (if helpful)
+- Provide improved code snippets
+- Show alternative approaches
+- Demonstrate best practices
 
-**Try me with any code snippet!** 🚀`,
-      metadata: {
-        welcome: true,
-        timestamp: new Date().toISOString(),
-        agent: "code_helper_telex",
-        mastra_powered: true
-      }
-    };
-  }
-
-  getErrorMessage(customMessage = null) {
-    return {
-      text: customMessage || "⚠️ Service is currently unavailable.",
-      metadata: {
-        error: true,
-        timestamp: new Date().toISOString(),
-        agent: "code_helper_telex"
-      }
-    };
-  }
+Please use clear markdown formatting with bullet points and code blocks where appropriate.
+`;
 }
 
-// Create an instance and export it
-const codeHelperServiceInstance = new CodeHelperService();
+// Helper function to parse AI response into structured data
+function parseAnalysisResponse(analysis, originalCode, language) {
+  // Extract sections from the AI response
+  const issues = extractSection(analysis, "issues", ["No critical issues found"]);
+  const suggestions = extractSection(analysis, "suggestions", ["Add comprehensive error handling"]);
+  const security = extractSection(analysis, "security", ["No major security vulnerabilities detected"]);
+  
+  // Format the final response for Telex
+  const formattedResponse = `
+${analysis}
 
-export { 
-  codeHelperServiceInstance as CodeHelperService,
-  codeHelperAgent, 
-  mastraAvailable 
-};
+**Original Code Analyzed:**
+\`\`\`${language.toLowerCase()}
+${originalCode}
+\`\`\`
+
+*Analysis powered by Mastra AI with Gemini*
+  `.trim();
+  
+  return {
+    formattedResponse,
+    issues,
+    suggestions,
+    security,
+  };
+}
+
+// Helper to extract sections from AI response
+function extractSection(text, sectionType, fallback) {
+  const sectionPatterns = {
+    issues: [/issues?[:]?\s*\n([^*]+)/i, /potential issues?[:]?\s*\n([^*]+)/i],
+    suggestions: [/suggestions?[:]?\s*\n([^*]+)/i, /improvements?[:]?\s*\n([^*]+)/i],
+    security: [/security[:]?\s*\n([^*]+)/i, /vulnerabilities?[:]?\s*\n([^*]+)/i]
+  };
+  
+  for (const pattern of sectionPatterns[sectionType] || []) {
+    const match = text.match(pattern);
+    if (match) {
+      const items = match[1].split('\n')
+        .map(line => line.replace(/^[•\-*\s]+/, '').trim())
+        .filter(line => line.length > 0);
+      return items.length > 0 ? items : fallback;
+    }
+  }
+  
+  return fallback;
+}
+
+// Fallback basic analysis
+async function basicCodeAnalysis(code) {
+  const language = detectLanguage(code);
+  
+  const issues = [];
+  const suggestions = [];
+  const security = [];
+
+  // Basic pattern checks
+  if (code.includes('eval(')) {
+    issues.push('Avoid using eval() - security risk');
+    security.push('Replace eval() with safer alternatives');
+  }
+
+  if ((code.includes('password') || code.includes('api_key')) && code.includes('=')) {
+    issues.push('Hardcoded credentials detected');
+    security.push('Use environment variables for sensitive data');
+  }
+
+  if (code.includes('.innerHTML') && !code.includes('.textContent')) {
+    issues.push('Using innerHTML can lead to XSS vulnerabilities');
+    security.push('Prefer textContent or use proper sanitization');
+  }
+
+  if (issues.length === 0) issues.push('No critical issues found');
+  if (suggestions.length === 0) suggestions.push('Add input validation', 'Implement error handling');
+  if (security.length === 0) security.push('No major security vulnerabilities detected');
+
+  return {
+    analysis: createBasicAnalysisResponse(language, issues, suggestions, security, code),
+    language,
+    issues,
+    suggestions,
+    security,
+  };
+}
+
+function createBasicAnalysisResponse(language, issues, suggestions, security, code) {
+  return `
+🔍 **Basic Code Analysis**
+
+**Language:** ${language}
+
+**📋 Issues Found:**
+${issues.map(issue => `• ${issue}`).join('\n')}
+
+**💡 Suggestions:**
+${suggestions.map(suggestion => `• ${suggestion}`).join('\n')}
+
+**🛡️ Security Notes:**
+${security.map(sec => `• ${sec}`).join('\n')}
+
+**Original Code:**
+\`\`\`${language.toLowerCase()}
+${code}
+\`\`\`
+
+*Basic analysis - Add Gemini API key for AI-powered analysis*
+  `.trim();
+}
+
+// Detect programming language
+function detectLanguage(code) {
+  const codeSample = code.toLowerCase();
+  
+  if (codeSample.includes('<?php')) return 'PHP';
+  if (codeSample.includes('def ') || codeSample.includes('import ') || codeSample.includes('print(')) return 'Python';
+  if (codeSample.includes('#include') || codeSample.includes('cout') || codeSample.includes('printf(')) return 'C++';
+  if (codeSample.includes('function') || codeSample.includes('const ') || codeSample.includes('let ')) return 'JavaScript';
+  if (codeSample.includes('public class') || codeSample.includes('import java')) return 'Java';
+  if (codeSample.includes('package main') || codeSample.includes('func ')) return 'Go';
+  if (codeSample.includes('using system') || codeSample.includes('namespace ')) return 'C#';
+  if (codeSample.includes('<html') || codeSample.includes('</div>')) return 'HTML';
+  if (codeSample.includes('select ') || codeSample.includes('from ')) return 'SQL';
+  
+  return 'Unknown';
+}
+
+export default codeHelperAgent;

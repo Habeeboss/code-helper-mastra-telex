@@ -1,5 +1,5 @@
 {
   "version": "1",
-  "entry": "./src/main.js",
+  "entry": "./src/mastra/index.js",
   "type": "node"
 }
