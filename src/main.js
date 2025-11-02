@@ -1,25 +1,20 @@
 import express from 'express';
-import { Mastra } from "@mastra/core";
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4040;
 
-// Disable telemetry warnings
-globalThis.___MASTRA_TELEMETRY___ = true;
+// Initialize Gemini
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'your-api-key-here');
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
-// Create Mastra instance
-export const mastra = new Mastra({
-  // You can add agents or workflows here if needed
-  // agents: {},
-  // workflows: {}
-});
+// Middleware
+app.use(express.json({ limit: '10mb' }));
 
-// Improved JSON middleware
-app.use(express.json({
-  limit: '10mb'
-}));
-
-// Error handling middleware for JSON parsing
+// Error handling middleware
 app.use((error, req, res, next) => {
   if (error instanceof SyntaxError) {
     console.error('❌ JSON Syntax Error:', error.message);
@@ -46,10 +41,10 @@ app.get('/health', (req, res) => {
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
-    message: 'Code Helper Mastra Agent',
+    message: 'Code Helper Agent',
     status: 'running',
     version: '1.0.0',
-    mastra: true
+    powered_by: 'Gemini AI'
   });
 });
 
@@ -59,8 +54,6 @@ app.post('/api/a2a/agent/codeHelper', async (req, res) => {
     console.log('📨 Received Telex request');
     
     const { message, text } = req.body;
-    
-    // Use the code from message or text field
     const codeToAnalyze = message || text || '';
     
     if (!codeToAnalyze.trim()) {
@@ -71,12 +64,11 @@ app.post('/api/a2a/agent/codeHelper', async (req, res) => {
 
     console.log(`🔍 Analyzing code (${codeToAnalyze.length} chars)`);
 
-    // Simple code analysis
-    const analysis = await analyzeCode(codeToAnalyze);
+    // Use Gemini for code analysis
+    const analysis = await analyzeCodeWithGemini(codeToAnalyze);
     
-    // Format response for Telex
     const response = {
-      response: formatAnalysisResponse(analysis, codeToAnalyze)
+      response: analysis
     };
 
     console.log('✅ Analysis complete');
@@ -90,115 +82,94 @@ app.post('/api/a2a/agent/codeHelper', async (req, res) => {
   }
 });
 
-// Simple code analysis function
-async function analyzeCode(code) {
+// Analyze code using Gemini
+async function analyzeCodeWithGemini(code) {
+  try {
+    const prompt = `
+You are an expert code assistant. Analyze the following code and provide:
+
+1. **Code Explanation** - What the code does and how it works
+2. **Potential Issues** - Bugs, errors, or problems
+3. **Improvement Suggestions** - Better approaches and best practices
+4. **Security Considerations** - Security issues and fixes
+
+Format your response using markdown with clear sections. Use bullet points and code blocks where appropriate.
+
+Code to analyze:
+\`\`\`
+${code}
+\`\`\`
+    `;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
+    
+  } catch (error) {
+    console.error('❌ Gemini analysis failed:', error);
+    // Fallback to basic analysis
+    return await basicCodeAnalysis(code);
+  }
+}
+
+// Fallback basic analysis
+async function basicCodeAnalysis(code) {
   const language = detectLanguage(code);
   
-  // Basic analysis based on code patterns
   const issues = [];
   const suggestions = [];
   const security = [];
 
-  // Check for common issues
+  // Basic pattern checks
   if (code.includes('eval(')) {
-    issues.push('Avoid using eval() - it can execute arbitrary code and is a security risk');
-    security.push('Replace eval() with safer alternatives like Function constructor or JSON.parse');
+    issues.push('Avoid using eval() - security risk');
+    security.push('Replace eval() with safer alternatives');
   }
 
-  if (code.includes('password') && code.includes('===')) {
+  if (code.includes('password') && code.includes('=')) {
     issues.push('Hardcoded credentials detected');
-    security.push('Use environment variables for sensitive data like passwords');
+    security.push('Use environment variables for sensitive data');
   }
 
-  if (code.includes('.innerHTML') && !code.includes('.textContent')) {
-    issues.push('Using innerHTML can lead to XSS vulnerabilities');
-    security.push('Prefer textContent or use proper sanitization for innerHTML');
-  }
+  if (issues.length === 0) issues.push('No critical issues found');
+  if (suggestions.length === 0) suggestions.push('Add input validation', 'Implement error handling');
+  if (security.length === 0) security.push('No major security vulnerabilities detected');
 
-  if (code.includes('console.log') && code.length < 100) {
-    suggestions.push('Remove console.log statements before production deployment');
-  }
-
-  if (!code.includes('function') && !code.includes('=>') && code.includes('{') && code.includes('}')) {
-    suggestions.push('Consider adding JSDoc comments for better documentation');
-  }
-
-  // Default suggestions if no specific issues found
-  if (issues.length === 0) {
-    issues.push('No critical issues found');
-    suggestions.push('Add input validation for function parameters');
-    suggestions.push('Implement error handling with try-catch blocks');
-  }
-
-  if (security.length === 0) {
-    security.push('No major security vulnerabilities detected');
-    security.push('Always validate and sanitize user inputs');
-  }
-
-  return {
-    language,
-    summary: `Analyzed ${language} code (${code.length} characters, ${code.split('\n').length} lines)`,
-    issues,
-    suggestions,
-    security
-  };
-}
-
-// Detect programming language from code
-function detectLanguage(code) {
-  if (code.includes('<?php')) return 'PHP';
-  if (code.includes('def ') || code.includes('import ')) return 'Python';
-  if (code.includes('#include') || code.includes('cout') || code.includes('printf')) return 'C++';
-  if (code.includes('function') || code.includes('const ') || code.includes('let ')) return 'JavaScript';
-  if (code.includes('public class') || code.includes('import java')) return 'Java';
-  if (code.includes('package main') || code.includes('func ')) return 'Go';
-  if (code.includes('<html') || code.includes('</div>')) return 'HTML';
-  if (code.includes('SELECT') || code.includes('FROM')) return 'SQL';
-  return 'Unknown';
-}
-
-// Format analysis response for Telex
-function formatAnalysisResponse(analysis, originalCode) {
   return `
 🔍 **Code Analysis Complete**
 
-**Language:** ${analysis.language}
-**Summary:** ${analysis.summary}
+**Language:** ${language}
 
 **📋 Issues Found:**
-${analysis.issues.map(issue => `• ${issue}`).join('\n')}
+${issues.map(issue => `• ${issue}`).join('\n')}
 
 **💡 Suggestions:**
-${analysis.suggestions.map(suggestion => `• ${suggestion}`).join('\n')}
+${suggestions.map(suggestion => `• ${suggestion}`).join('\n')}
 
 **🛡️ Security Notes:**
-${analysis.security.map(security => `• ${security}`).join('\n')}
+${security.map(security => `• ${security}`).join('\n')}
 
-**Original Code:**
-\`\`\`${analysis.language.toLowerCase()}
-${originalCode}
-\`\`\`
-
-*Need more detailed analysis? Ask me specific questions about your code!*
+*Analysis powered by Gemini AI*
   `.trim();
 }
 
-// Start server
-async function main() {
-  try {
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Code Helper Agent running on port ${PORT}`);
-      console.log(`✅ Health endpoint: http://localhost:${PORT}/health`);
-      console.log(`🤖 Telex A2A endpoint: http://localhost:${PORT}/api/a2a/agent/codeHelper`);
-      console.log(`🔧 Mastra instance exported for cloud deployment`);
-    });
-  } catch (error) {
-    console.error('❌ Failed to start server:', error);
-    process.exit(1);
-  }
+// Detect programming language
+function detectLanguage(code) {
+  if (code.includes('<?php')) return 'PHP';
+  if (code.includes('def ') || code.includes('import ')) return 'Python';
+  if (code.includes('#include') || code.includes('cout')) return 'C++';
+  if (code.includes('function') || code.includes('const ')) return 'JavaScript';
+  if (code.includes('public class')) return 'Java';
+  if (code.includes('<html')) return 'HTML';
+  return 'Unknown';
 }
 
-// Export for Mastra Cloud
-export default mastra;
+// Start server
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Code Helper Agent running on port ${PORT}`);
+  console.log(`✅ Health endpoint: http://localhost:${PORT}/health`);
+  console.log(`🤖 Telex A2A endpoint: http://localhost:${PORT}/api/a2a/agent/codeHelper`);
+});
 
-main().catch(console.error);
+// Export for potential Mastra integration later
+export default app;
