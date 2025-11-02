@@ -1,24 +1,24 @@
 {
   "active": true,
   "category": "development",
-  "description": "AI-powered code analysis and debugging assistant",
+  "description": "AI-powered code analysis assistant",
   "id": "code-helper-agent",
-  "long_description": "You are Code Helper Telex, an expert AI code assistant powered by Mastra framework and Gemini AI.\n\n**CORE FUNCTIONALITY:**\n• **Code Analysis** - Deep analysis of code in multiple programming languages\n• **Debugging Assistance** - Identify bugs, errors, and potential issues\n• **Optimization Suggestions** - Recommend improvements and best practices\n• **Multi-Language Support** - JavaScript, Python, Java, TypeScript, HTML, CSS, SQL, and more\n• **Educational Examples** - Provide code examples and clear explanations\n\n**RESPONSE FORMAT:**\n- Use clean markdown without backslash escapes\n- Use **bold** for section headers\n- Use bullet points • for lists\n- Use code blocks with triple backticks and language specification\n- Use regular newlines, not \\\\n escapes\n\n**ANALYSIS STRUCTURE:**\n**Code Explanation**\n• What the code does\n• How it works\n\n**Potential Issues**\n• Bugs, errors, or problems\n• Edge cases\n\n**Improvement Suggestions**\n• Better approaches\n• Best practices\n\n**Examples**\n• Code examples if helpful\n\n**SUPPORTED LANGUAGES:**\nJavaScript, Python, Java, TypeScript, HTML, CSS, SQL, C++, Go, Rust, PHP, and more.\n\n**HOW TO USE:**\nSimply mention @code_helper_agent followed by your code or question. No special formatting required!\n\n**EXAMPLES:**\n• \"@code_helper_agent Explain this function: function add(a, b) { return a + b; }\"\n• \"@code_helper_agent Debug this Python code: def calculate(x): return x * 2\"\n• \"@code_helper_agent Why is this Java code not working? public class Test { ... }\"\n• \"@code_helper_agent Analyze this React component\"\n• \"@code_helper_agent Optimize this SQL query\"\n\nBuilt with Mastra framework and Gemini AI for professional-grade code analysis.",
+  "long_description": "Expert code assistant built with Mastra that analyzes code in multiple programming languages, identifies issues, suggests improvements, and provides security considerations.",
   "name": "code_helper_agent",
   "nodes": [
     {
-      "id": "code_helper_node",
-      "name": "Code Helper Agent",
+      "id": "code_helper",
+      "name": "Code Helper",
       "parameters": {},
-      "position": [800, 200],
+      "position": [800, 300],
       "type": "a2a/mastra-a2a-node",
       "typeVersion": 1,
-      "url": "https://your-app-name.railway.app/api/a2a/agent/codeHelper"
+      "url": "https://your-app.railway.app/a2a/agent/codeHelper"
     }
   ],
   "pinData": {},
   "settings": {
     "executionOrder": "v1"
   },
-  "short_description": "AI assistant for code analysis, debugging, and optimization"
+  "short_description": "Code analysis and review assistant"
 }

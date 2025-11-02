@@ -2,183 +2,138 @@ import { Agent } from "@mastra/core/agent";
 import { z } from "zod";
 import { getGeminiModel } from "../config/gemini.js";
 
-// Create proper Mastra Agent with the correct structure
+// Create Mastra Agent with tools defined in the constructor
 export const codeHelperAgent = new Agent({
   name: "code_helper_telex",
   instructions: `
 You are an expert code assistant that helps developers with code analysis, debugging, and optimization.
 
-CORE FUNCTIONALITY:
-- Analyze code in multiple programming languages
-- Identify bugs, errors, and potential issues  
-- Suggest improvements and best practices
-- Provide code examples and explanations
-- Help with debugging and optimization
+Provide comprehensive code analysis with:
+- Code explanation
+- Bug detection and potential issues
+- Improvement suggestions
+- Security considerations
+- Best practices recommendations
 
-RESPONSE FORMAT:
-- Use clean markdown formatting
-- Use **bold** for section headers
-- Use bullet points • for lists
-- Use code blocks with triple backticks
-- Use regular newlines for readability
-
-ANALYSIS STRUCTURE:
-**Code Explanation**
-• What the code does
-• How it works
-
-**Potential Issues**
-• Bugs, errors, or problems
-• Edge cases
-
-**Improvement Suggestions**
-• Better approaches  
-• Best practices
-
-**Examples**
-• Code examples if helpful
-
-LANGUAGES SUPPORTED:
-JavaScript, Python, Java, TypeScript, HTML, CSS, Go, Rust, PHP, and more.
+Use clear markdown formatting with sections and bullet points.
 `,
   model: "gemini-2.0-flash-exp",
+  
   // Define tools directly in the agent configuration
   tools: {
     analyzeCode: {
       description: "Analyze code for issues, improvements, and security considerations",
       parameters: z.object({
         code: z.string().describe("The code to analyze"),
-        language: z.string().optional().describe("Programming language of the code"),
+        language: z.string().optional().describe("Programming language")
       }),
-      execute: async ({ context }) => {
+      execute: async (input) => {
+        console.log("🔄 Tool execution started with input:", JSON.stringify(input, null, 2));
+        
         try {
-          const { code, language } = context.parameters;
-          const detectedLanguage = language || detectLanguage(code);
+          // Handle ALL possible parameter formats
+          let code, language;
           
-          console.log(`🔍 Analyzing ${detectedLanguage} code (${code.length} chars)`);
+          // Format 1: Direct parameters { code, language }
+          if (input.code) {
+            code = input.code;
+            language = input.language || "javascript";
+          } 
+          // Format 2: Nested parameters { parameters: { code, language } }
+          else if (input.parameters) {
+            code = input.parameters.code;
+            language = input.parameters.language || "javascript";
+          } 
+          // Format 3: Context format { context: { input: { code, language } } }
+          else if (input.context?.input) {
+            code = input.context.input.code;
+            language = input.context.input.language || "javascript";
+          }
+          // Format 4: Any other format - extract first string as code
+          else {
+            // Try to find code in any property
+            const values = Object.values(input);
+            code = values.find(val => typeof val === 'string' && val.length > 0) || "No code provided";
+            language = "unknown";
+          }
+          
+          console.log(`🔍 Extracted - Code: ${code.substring(0, 50)}..., Language: ${language}`);
           
           // Use Gemini for AI-powered analysis
           const geminiModel = getGeminiModel("gemini-2.0-flash-exp");
-          const prompt = createAnalysisPrompt(code, detectedLanguage);
-          
-          const result = await geminiModel.generateContent(prompt);
-          const analysis = await result.response.text();
-          
-          // Parse the AI response into structured data
-          const structuredAnalysis = parseAnalysisResponse(analysis, code, detectedLanguage);
-          
-          return {
-            analysis: structuredAnalysis.formattedResponse,
-            language: detectedLanguage,
-            issues: structuredAnalysis.issues,
-            suggestions: structuredAnalysis.suggestions,
-            security: structuredAnalysis.security,
-          };
-          
-        } catch (error) {
-          console.error("❌ AI analysis failed:", error.message);
-          // Fallback to basic analysis
-          return await basicCodeAnalysis(context.parameters.code);
-        }
-      }
-    }
-  }
-});
+          const prompt = `
+As an expert code analyst, please provide a comprehensive review of this ${language} code:
 
-// Helper function to create analysis prompt
-function createAnalysisPrompt(code, language) {
-  return `
-As an expert code analyst, please provide a comprehensive review of the following ${language} code:
-
-\`\`\`${language.toLowerCase()}
+\`\`\`${language}
 ${code}
 \`\`\`
 
 Please structure your analysis with these sections:
 
 **🔍 Code Explanation**
-- Explain what the code does in simple terms
-- Describe how it works and its main components
-- Identify the programming paradigm and key functions
+- What the code does
+- How it works
+- Key components and functions
 
 **⚠️ Potential Issues**
-- List any bugs, errors, or logical problems
-- Identify edge cases that aren't handled
-- Point out performance bottlenecks or inefficiencies
-- Note any compatibility or dependency issues
+- Bugs, errors, or logical problems
+- Edge cases not handled
+- Performance concerns
 
 **💡 Improvement Suggestions**
-- Suggest better coding practices
-- Recommend optimizations for performance
-- Propose better architecture or patterns
-- Suggest ways to improve readability and maintainability
+- Better coding practices
+- Optimizations
+- Readability improvements
 
 **🛡️ Security Considerations**
-- Identify potential security vulnerabilities
-- Suggest input validation and sanitization
-- Recommend security best practices
-- Point out any data protection concerns
+- Security vulnerabilities
+- Input validation needs
+- Data protection
 
-**📝 Examples** (if helpful)
-- Provide improved code snippets
-- Show alternative approaches
-- Demonstrate best practices
-
-Please use clear markdown formatting with bullet points and code blocks where appropriate.
+Use clear markdown formatting with bullet points.
 `;
-}
 
-// Helper function to parse AI response into structured data
-function parseAnalysisResponse(analysis, originalCode, language) {
-  // Extract sections from the AI response
-  const issues = extractSection(analysis, "issues", ["No critical issues found"]);
-  const suggestions = extractSection(analysis, "suggestions", ["Add comprehensive error handling"]);
-  const security = extractSection(analysis, "security", ["No major security vulnerabilities detected"]);
-  
-  // Format the final response for Telex
-  const formattedResponse = `
-${analysis}
-
-**Original Code Analyzed:**
-\`\`\`${language.toLowerCase()}
-${originalCode}
-\`\`\`
-
-*Analysis powered by Mastra AI with Gemini*
-  `.trim();
-  
-  return {
-    formattedResponse,
-    issues,
-    suggestions,
-    security,
-  };
-}
-
-// Helper to extract sections from AI response
-function extractSection(text, sectionType, fallback) {
-  const sectionPatterns = {
-    issues: [/issues?[:]?\s*\n([^*]+)/i, /potential issues?[:]?\s*\n([^*]+)/i],
-    suggestions: [/suggestions?[:]?\s*\n([^*]+)/i, /improvements?[:]?\s*\n([^*]+)/i],
-    security: [/security[:]?\s*\n([^*]+)/i, /vulnerabilities?[:]?\s*\n([^*]+)/i]
-  };
-  
-  for (const pattern of sectionPatterns[sectionType] || []) {
-    const match = text.match(pattern);
-    if (match) {
-      const items = match[1].split('\n')
-        .map(line => line.replace(/^[•\-*\s]+/, '').trim())
-        .filter(line => line.length > 0);
-      return items.length > 0 ? items : fallback;
+          console.log("🔄 Calling Gemini API...");
+          const result = await geminiModel.generateContent(prompt);
+          const analysis = await result.response.text();
+          console.log("✅ Gemini analysis completed");
+          
+          return {
+            analysis: analysis,
+            language: language,
+            issues: ["See detailed analysis above"],
+            suggestions: ["Review the analysis for specific suggestions"],
+            security: ["See security considerations in analysis"]
+          };
+          
+        } catch (error) {
+          console.error("❌ Mastra analysis failed:", error.message);
+          // Fallback to basic analysis
+          return await basicCodeAnalysis(input);
+        }
+      }
     }
   }
-  
-  return fallback;
-}
+});
 
-// Fallback basic analysis
-async function basicCodeAnalysis(code) {
-  const language = detectLanguage(code);
+// Fallback basic analysis that also handles parameter formats
+async function basicCodeAnalysis(input) {
+  let code, language;
+  
+  // Extract code from any format
+  if (input.code) {
+    code = input.code;
+  } else if (input.parameters?.code) {
+    code = input.parameters.code;
+  } else if (input.context?.input?.code) {
+    code = input.context.input.code;
+  } else {
+    // Find first string
+    const values = Object.values(input);
+    code = values.find(val => typeof val === 'string') || "No code provided";
+  }
+  
+  language = detectLanguage(code);
   
   const issues = [];
   const suggestions = [];
@@ -195,26 +150,12 @@ async function basicCodeAnalysis(code) {
     security.push('Use environment variables for sensitive data');
   }
 
-  if (code.includes('.innerHTML') && !code.includes('.textContent')) {
-    issues.push('Using innerHTML can lead to XSS vulnerabilities');
-    security.push('Prefer textContent or use proper sanitization');
-  }
-
   if (issues.length === 0) issues.push('No critical issues found');
   if (suggestions.length === 0) suggestions.push('Add input validation', 'Implement error handling');
   if (security.length === 0) security.push('No major security vulnerabilities detected');
 
   return {
-    analysis: createBasicAnalysisResponse(language, issues, suggestions, security, code),
-    language,
-    issues,
-    suggestions,
-    security,
-  };
-}
-
-function createBasicAnalysisResponse(language, issues, suggestions, security, code) {
-  return `
+    analysis: `
 🔍 **Basic Code Analysis**
 
 **Language:** ${language}
@@ -233,25 +174,28 @@ ${security.map(sec => `• ${sec}`).join('\n')}
 ${code}
 \`\`\`
 
-*Basic analysis - Add Gemini API key for AI-powered analysis*
-  `.trim();
+*Basic analysis - AI service unavailable*
+    `.trim(),
+    language: language,
+    issues: issues,
+    suggestions: suggestions,
+    security: security
+  };
 }
 
 // Detect programming language
 function detectLanguage(code) {
   const codeSample = code.toLowerCase();
-  
   if (codeSample.includes('<?php')) return 'PHP';
-  if (codeSample.includes('def ') || codeSample.includes('import ') || codeSample.includes('print(')) return 'Python';
-  if (codeSample.includes('#include') || codeSample.includes('cout') || codeSample.includes('printf(')) return 'C++';
-  if (codeSample.includes('function') || codeSample.includes('const ') || codeSample.includes('let ')) return 'JavaScript';
-  if (codeSample.includes('public class') || codeSample.includes('import java')) return 'Java';
-  if (codeSample.includes('package main') || codeSample.includes('func ')) return 'Go';
-  if (codeSample.includes('using system') || codeSample.includes('namespace ')) return 'C#';
+  if (codeSample.includes('def ') || codeSample.includes('import ')) return 'Python';
+  if (codeSample.includes('#include') || codeSample.includes('cout')) return 'C++';
+  if (codeSample.includes('function') || codeSample.includes('const ')) return 'JavaScript';
+  if (codeSample.includes('public class')) return 'Java';
   if (codeSample.includes('<html') || codeSample.includes('</div>')) return 'HTML';
-  if (codeSample.includes('select ') || codeSample.includes('from ')) return 'SQL';
-  
   return 'Unknown';
 }
+
+console.log("✅ Code Helper Agent created successfully");
+console.log("🔧 Available tools:", Object.keys(codeHelperAgent.tools || {}));
 
 export default codeHelperAgent;
