@@ -1,6 +1,5 @@
-const express = require("express");
-// Import directly from the agent file
-const { CodeHelperService, mastraAvailable } = require("../agents/codeHelper.js");
+import express from "express";
+import { CodeHelperService, mastraAvailable } from "../agents/codeHelper.js";
 
 const router = express.Router();
 
@@ -61,4 +60,4 @@ router.get("/health", (req, res) => {
   });
 });
 
-module.exports = router;
+export default router;

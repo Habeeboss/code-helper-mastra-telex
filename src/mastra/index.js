@@ -1,25 +1,22 @@
-const agentExports = require("../agents/codeHelper.js");
-
-// Destructure the exports properly
-const { CodeHelperService, codeHelperAgent, mastraAvailable } = agentExports;
+import { Mastra } from "@mastra/core";
+import { CodeHelperService, codeHelperAgent, mastraAvailable } from "../agents/codeHelper.js";
 
 // Verify the exports
 console.log("🔍 Mastra index - CodeHelperService:", typeof CodeHelperService);
 console.log("🔍 Mastra index - mastraAvailable:", mastraAvailable);
 
-// Simple Mastra wrapper
-const mastra = {
-  agents: {
-    codeHelper: codeHelperAgent
-  },
-  start: async () => {
-    console.log("🔄 Mastra framework initialized");
-    return true;
-  }
-};
+// Create proper Mastra instance (no start method needed)
+const mastra = new Mastra({
+  agents: [codeHelperAgent]
+});
 
-module.exports = { 
+console.log("✅ Mastra instance created successfully");
+
+export { 
   mastra, 
   CodeHelperService,
   mastraAvailable 
 };
+
+// Export mastra as default (required for Mastra deployer)
+export default mastra;
