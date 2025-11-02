@@ -1,9 +1,9 @@
 {
   "active": true,
-  "category": "development",
+  "category": "utilities",
   "description": "AI-powered code analysis assistant",
   "id": "code-helper-agent",
-  "long_description": "Expert code assistant built with Mastra that analyzes code in multiple programming languages, identifies issues, suggests improvements, and provides security considerations.",
+  "long_description": "Expert code assistant built with Mastra that analyzes code in multiple programming languages, identifies issues, suggests improvements, and provides security considerations.\n\nWhen responding:\n- Always provide comprehensive code analysis\n- Use markdown formatting for readability\n- Include code examples when helpful\n- Focus on actionable improvements\n\nSupported languages: JavaScript, Python, Java, TypeScript, HTML, CSS, Go, Rust, PHP, and more.",
   "name": "code_helper_agent",
   "nodes": [
     {
@@ -13,12 +13,12 @@
       "position": [800, 300],
       "type": "a2a/mastra-a2a-node",
       "typeVersion": 1,
-      "url": "https://your-app.railway.app/a2a/agent/codeHelper"
+      "url": "https://code-helper-mastra-telex-production.up.railway.app/a2a/agent/codeHelper"
     }
   ],
   "pinData": {},
   "settings": {
     "executionOrder": "v1"
   },
-  "short_description": "Code analysis and review assistant"
+  "short_description": "AI-powered code analysis and review assistant"
 }
