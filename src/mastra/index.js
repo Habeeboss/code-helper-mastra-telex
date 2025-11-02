@@ -1,22 +1,9 @@
 import { Mastra } from "@mastra/core";
-import { CodeHelperService, codeHelperAgent, mastraAvailable } from "../agents/codeHelper.js";
 
-// Verify the exports
-console.log("🔍 Mastra index - CodeHelperService:", typeof CodeHelperService);
-console.log("🔍 Mastra index - mastraAvailable:", mastraAvailable);
+globalThis.___MASTRA_TELEMETRY___ = true;
 
-// Create proper Mastra instance (no start method needed)
-const mastra = new Mastra({
-  agents: [codeHelperAgent]
-});
+const mastra = new Mastra();
 
-console.log("✅ Mastra instance created successfully");
+console.log(" Mastra instance created for deployment");
 
-export { 
-  mastra, 
-  CodeHelperService,
-  mastraAvailable 
-};
-
-// Export mastra as default (required for Mastra deployer)
 export default mastra;
