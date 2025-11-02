@@ -1,0 +1,23 @@
+{
+  "name": "code-helper-utilizing-mastra-telex",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "description": "HNG Stage 3 - Code Helper Agent with Mastra for Telex.im",
+  "main": "src/main.js",
+  "scripts": {
+    "dev": "nodemon src/main.js",
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@mastra/core": "^0.23.3",
+    "express": "^4.18.2",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "keywords": ["hng", "telex", "mastra", "ai-agent"],
+  "author": "Habeeb Olakunle"
+}

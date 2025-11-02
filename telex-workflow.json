@@ -1,0 +1,24 @@
+{
+  "active": true,
+  "category": "development",
+  "description": "AI-powered code assistant for developers",
+  "id": "code-helper-agent",
+  "long_description": "An intelligent Mastra-powered code assistant that provides comprehensive code analysis, debugging help, and optimization suggestions. \n\n**Key Features:**\n• **Multi-Language Support**: JavaScript, Python, Java, HTML, CSS, and more\n• **Smart Code Analysis**: Automatic language detection without requiring code blocks\n• **Debugging Assistance**: Identifies bugs, errors, and potential issues\n• **Optimization Suggestions**: Best practices and performance improvements\n• **Educational Examples**: Step-by-step explanations with code samples\n\n**How to Use:**\nSimply mention @code_helper_agent followed by your code or question. No special formatting required!\n\n**Examples:**\n• \"@code_helper_agent Explain this function: function add(a,b) { return a + b; }\"\n• \"@code_helper_agent Debug this Python: def calculate(x): return x * 2\"\n• \"@code_helper_agent Why is this Java code not working? public class Test { ... }\"\n\nBuilt with Mastra framework and Gemini AI for professional-grade code analysis.",
+  "name": "code_helper_agent",
+  "nodes": [
+    {
+      "id": "code_helper_node",
+      "name": "Code Helper Agent",
+      "parameters": {},
+      "position": [800, 200],
+      "type": "a2a/mastra-a2a-node",
+      "typeVersion": 1,
+      "url": "https://your-app.railway.app/api/a2a/agent/codeHelper"
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "short_description": "AI assistant for code analysis, debugging, and optimization"
+}
