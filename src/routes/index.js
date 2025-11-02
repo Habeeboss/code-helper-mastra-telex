@@ -1,46 +1,25 @@
 const express = require("express");
-const { CodeHelperService } = require("../agents/codeHelper.js");
+// Import directly from the agent file
+const { CodeHelperService, mastraAvailable } = require("../agents/codeHelper.js");
 
 const router = express.Router();
 
-const validateInput = (req) => {
-  if (!req.body) {
-    throw new Error('Request body is required');
-  }
-  
-  const { message, text } = req.body;
-  const userMessage = message || text || '';
-
-  if (typeof userMessage !== 'string') {
-    throw new Error('Message must be a string');
-  }
-  
-  if (userMessage.length > 10000) {
-    throw new Error('Message too long (max 10000 characters)');
-  }
-  
-  return userMessage;
-};
-
-const cleanTelexResponse = (text) => {
-  if (!text || typeof text !== 'string') return '';
-  
-  return text
-    .replace(/\\n/g, '\n')
-    .replace(/\\`/g, '`')
-    .replace(/\\\*/g, '*')
-    .replace(/\\#/g, '#')
-    .replace(/\\\\/g, '\\')
-    .replace(/\\_/g, '_')
-    .trim();
-};
+// Debug direct import
+console.log("🔍 Direct import - CodeHelperService:", typeof CodeHelperService);
+console.log("🔍 Direct import - processMessage:", typeof CodeHelperService?.processMessage);
 
 router.post("/a2a/agent/codeHelper", async (req, res) => {
   try {
-    console.log('📨 Received Telex request');
+    console.log('📨 Received Telex A2A request');
     
     const { message, text } = req.body;
     const userMessage = message || text || '';
+    
+    console.log('Processing message:', userMessage.substring(0, 100) + '...');
+    
+    if (typeof CodeHelperService?.processMessage !== 'function') {
+      throw new Error('CodeHelperService.processMessage is not available');
+    }
     
     const result = await CodeHelperService.processMessage(userMessage);
     
@@ -48,17 +27,27 @@ router.post("/a2a/agent/codeHelper", async (req, res) => {
       reply: result.text,
       timestamp: result.metadata.timestamp,
       agent: result.metadata.agent,
-      language: result.metadata.language
+      metadata: {
+        mastra_used: result.metadata.mastra_used || false,
+        mastra_available: mastraAvailable,
+        provider: result.metadata.provider || 'gemini-2.5-flash',
+        processing_engine: result.metadata.processing_engine || 'gemini',
+        ...(result.metadata.fallback_used && { fallback_used: true }),
+        ...(result.metadata.welcome && { welcome: true }),
+        ...(result.metadata.error && { error: true })
+      }
     };
     
-    console.log(' Sending response');
+    console.log('✅ Sending A2A response');
     res.json(response);
     
   } catch (error) {
-    console.error(' A2A endpoint error:', error);
+    console.error('❌ A2A endpoint error:', error.message);
+    
     res.status(500).json({
-      reply: 'Internal server error - please try again later.',
+      reply: 'Service temporarily unavailable. Please try again.',
       timestamp: new Date().toISOString(),
+      agent: 'code_helper_telex',
       error: true
     });
   }
@@ -68,8 +57,7 @@ router.get("/health", (req, res) => {
   res.json({
     status: "healthy",
     agent: "code_helper_telex",
-    timestamp: new Date().toISOString(),
-    version: "1.0.0"
+    timestamp: new Date().toISOString()
   });
 });
 

@@ -7,4 +7,4 @@ const getGeminiModel = (model = "gemini-2.0-flash") => {
   return genAI.getGenerativeModel({ model });
 };
 
-module.exports = { genAI, getGeminiModel };
+module.exports = { genAI, getGeminiModel};
